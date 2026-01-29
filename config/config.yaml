@@ -1,0 +1,65 @@
+server:
+  listen_addr: "0.0.0.0:8080"
+  shutdown_grace_period_secs: 30
+
+metrics:
+  path: "/metrics"
+
+auth_policies:
+  - name: "default"
+    algorithm: "HS256"
+    issuer: "gateway"
+    audiences: []
+    required_scopes: []
+    key_id: null
+
+upstreams:
+  - name: "upstream1"
+    base_url: "http://upstream1:8080"
+    timeout_ms: 5000
+    retry:
+      attempts: 2
+      backoff_ms: 100
+
+  - name: "upstream2"
+    base_url: "http://upstream2:8080"
+    timeout_ms: 5000
+    retry:
+      attempts: 2
+      backoff_ms: 100
+
+routes:
+  - id: "api-v1"
+    match_path:
+      prefix: "/api/v1"
+    methods: ["GET", "POST", "PUT", "DELETE"]
+    upstream: "upstream1"
+    rewrite_path: null
+    auth_policy: null
+    rate_limit: "api-limit"
+
+  - id: "public"
+    match_path:
+      prefix: "/public"
+    methods: []
+    upstream: "upstream2"
+    rewrite_path: null
+    auth_policy: null
+    rate_limit: null
+
+  - id: "protected"
+    match_path:
+      prefix: "/protected"
+    methods: []
+    upstream: "upstream1"
+    rewrite_path: null
+    auth_policy: "default"
+    rate_limit: "api-limit"
+
+rate_limits:
+  - name: "api-limit"
+    limit_per_minute: 60
+    burst: 10
+    key:
+      - "client_ip"
+      - "route_path"

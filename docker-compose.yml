@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_URL=redis://redis:6379/
+      - GATEWAY_CONFIG_PATH=/app/config/config.yaml
+      - RUST_LOG=info
+      - JWT_SECRET=your-secret-key-change-in-production
+    volumes:
+      - ./config:/app/config:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  upstream1:
+    image: mendhak/http-https-echo:latest
+    ports:
+      - "8081:8080"
+    environment:
+      - PORT=8080
+
+  upstream2:
+    image: mendhak/http-https-echo:latest
+    ports:
+      - "8082:8080"
+    environment:
+      - PORT=8080
+
+volumes:
+  redis-data:
